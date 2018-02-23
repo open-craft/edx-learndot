@@ -1,0 +1,7 @@
+-e .
+caniusepython3
+coverage
+edx-lint
+mock
+pylint
+tox
