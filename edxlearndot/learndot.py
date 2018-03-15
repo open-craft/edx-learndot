@@ -1,0 +1,376 @@
+"""
+This module makes it easier to use Learndot's API.
+
+Right now it just contains what's required to support updating
+Learndot enrolments when an edX learner passes a course, and that's
+all based on their `v2 API`_.
+
+Note that the 'enrolment' spelling is intentional; that's the way
+Learndot (and (TIL) the rest of the English-speaking world outside of
+America) spell it, and it makes it easy to distinguish between their
+enrolments and edX enrollments.
+
+.. _v2 API:
+    https://trainingrocket.atlassian.net/wiki/spaces/DOCS/pages/74416315/API+V2
+"""
+
+from __future__ import absolute_import, unicode_literals
+
+import logging
+import os
+
+import dateutil.parser
+import requests
+from django.conf import settings
+
+log = logging.getLogger(__name__)
+
+
+class LearndotAPIException(Exception):
+    """
+    A wrapper around exceptions encountered while using the API.
+    """
+    pass
+
+
+def extract_enrolment_sort_key(e):
+    """
+    Return a key for sorting enrolments.
+
+    We're generally interested in the latest ``expiryDate``, so that's
+    the first component of the key. It is possible for enrolments to
+    lack ``expiryDate``, if the associated component doesn't have
+    ``expiryDays`` set. In this case, we'll fall back to sorting by
+    the enrolment's ``modified`` date, then to its ``created`` date,
+    or if those are somehow missing, an empty string.
+
+    Arguments:
+        e: a dict parsed from a Learndot JSON enrolment
+
+    Returns:
+        key: a tuple of (expiryDate, modified or created or "")
+
+    Raises:
+        ValueError: if an expiry date can't be parsed
+        OverflowError: if an expiry date can't be fit into the largest valid C integer
+    """
+
+    key = (e.get("expiryDate") or "", e.get("modified") or e.get("created") or "")
+
+    # validate each date string if not empty
+    for ds in key:
+        if ds != "":
+            dateutil.parser.parse(ds)
+
+    return key
+
+
+def compare_enrolment_sort_keys(t1, t2):
+    """
+    Compare enrolments by expiry date.
+
+    An enrolment with no expiryDate should sort after one that
+    expires.
+
+    Arguments:
+        t1: a tuple of ISO8601 date strings, each possibly empty
+        t2: a tuple of ISO8601 date strings, each possibly empty
+
+    Returns:
+        -1 if t1 < t2, 1 if t1 > t2, or 0 if they're equal
+    """
+
+    t1l = len(t1)
+    t2l = len(t2)
+    for i in range(max(t1l, t2l)):
+        ds1 = t1[i] if i < t1l else ""
+        ds2 = t2[i] if i < t2l else ""
+
+        if ds1 == "" and ds2 != "":
+            return 1
+        elif ds1 != "" and ds2 == "":
+            return -1
+        else:
+            r = cmp(ds1, ds2)
+            if r != 0:
+                return r
+
+    return 0
+
+
+def sort_enrolments_by_expiry(enrolment_list):
+    """
+    Sorts an array of Learndot enrolments by expiry date.
+
+    Learndot presents timestamps like expiryDate in ISO8601, without
+    the T separator (as permitted), e.g. "2019-03-09 05:52:11". This
+    works well enough for sorting. It is possible for enrolments to
+    lack an ``expiryDate``; `extract_enrolment_sort_key` documents
+    handling of those cases.
+
+    Arguments:
+        enrolment_list (list): a list of dictionaries representing
+            Learndot enrolments, as parsed from their API response.
+
+    Returns:
+        list: the input list, sorted by expiry date
+
+    Raises:
+        ValueError: if a sorting date can't be parsed
+        OverflowError: if a sorting date can't be fit into the largest valid C integer
+    """
+
+    return sorted(enrolment_list, key=extract_enrolment_sort_key, cmp=compare_enrolment_sort_keys)
+
+
+class EnrolmentStatus(object):
+    """
+    Basically an enum of valid Learndot enrolment status values.
+
+    Provides the convenience method `is_valid`.
+    """
+    APPROVED = "APPROVED"
+    CANCELLED = "CANCELLED"
+    CONFIRMED = "CONFIRMED"
+    FAILED = "FAILED"
+    IN_PROGRESS = "IN_PROGRESS"
+    MISSED = "MISSED"
+    PASSED = "PASSED"
+    TENTATIVE = "TENTATIVE"
+
+    @classmethod
+    def is_valid(cls, status):
+        return hasattr(cls, status) and getattr(cls, status) == status
+
+
+class LearndotAPIClientBase(object):
+    """
+    Base class for clients of the Learndot API.
+    """
+
+    def get_api_key(self):
+        """
+        Returns the API key for the Learndot v2 API.
+        """
+        raise NotImplementedError
+
+    def get_api_base_url(self):
+        """
+        Returns the base URL for the Learndot v2 API.
+        """
+        raise NotImplementedError
+
+    def get_api_request_headers(self):
+        """
+        Returns the headers required for v2 API calls.
+        """
+        return {
+            "TrainingRocket-Authorization": self.get_api_key(),
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+
+    def get_contact_search_url(self):
+        """
+        Returns the URL used to find contacts.
+        """
+        return os.path.join(self.get_api_base_url(), "api/rest/v2/manage/contact/search")
+
+    def get_enrolment_search_url(self):
+        """
+        Returns the URL used to find enrolments.
+        """
+        return os.path.join(self.get_api_base_url(), "api/rest/v2/manage/enrolment/search")
+
+    def get_enrolment_management_url_template(self):
+        """
+        Returns a template for the URL used to update enrolments.
+
+        The template URL contains a placeholder into which a numeric
+        enrolment ID should be substituted.
+        """
+        return os.path.join(
+            self.get_api_base_url(),
+            "api/rest/v2/manage/enrolment/{enrolment_id}"
+        )
+
+
+class LearndotAPIClient(LearndotAPIClientBase):
+    """
+    Client for the live Learndot API.
+    """
+
+    def get_api_key(self):
+        """
+        Returns the API key for the Learndot v2 API.
+        """
+        try:
+            return settings.LEARNDOT_API_KEY
+        except AttributeError:
+            msg = (
+                "The Learndot API key could not be found in your Django settings. "
+                "Please add it as settings.LEARNDOT_API_KEY."
+            )
+            log.fatal(msg)
+            raise LearndotAPIException(msg)
+
+    def get_api_base_url(self):
+        """
+        Returns the base URL for the Learndot v2 API.
+        """
+        try:
+            return settings.LEARNDOT_API_BASE_URL
+        except AttributeError:
+            msg = (
+                "The Learndot API base URL could not be found in your Django settings. "
+                "Please add it as settings.LEARNDOT_API_BASE_URL."
+            )
+            log.fatal(msg)
+            raise LearndotAPIException(msg)
+
+    def get_contact_id(self, user):
+        """
+        Tries to look up a Learndot contact using the edX user record.
+
+        Arguments:
+            user: django.contrib.auth.models.User
+
+        Returns:
+            int: the numeric Learndot contact ID.
+
+        Raises:
+            LearndotAPIException: if Requests throws anything, or if
+                multiple contacts are found.
+        """
+
+        log.info("Looking up Learndot contact for user %s.", user)
+
+        contact_query = {"email": [user.email]}
+
+        response = requests.post(
+            self.get_contact_search_url(),
+            headers=self.get_api_request_headers(),
+            json=contact_query
+        )
+        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            msg = "Error looking up Learndot contact for user {}: {}".format(user, e)
+            log.error(msg)
+            raise LearndotAPIException(msg)
+
+        contacts = response.json()["results"]
+        contact_id = None
+        if len(contacts) == 1:
+            contact_id = contacts[0]["id"]
+        elif len(contacts) > 1:
+            surfeit = {c["id"]: (c["_displayName_"], c["email"]) for c in contacts}
+            msg = "Multiple Learndot contacts found for user {}: {}".format(user, surfeit)
+            log.error(msg)
+            raise LearndotAPIException(msg)
+
+        return contact_id
+
+    def get_enrolment_id(self, contact_id, component_id):
+        """
+        Fetches the most recent Learndot enrolment record.
+
+        Obtain the contact ID with `edxlearndot.learndot.get_contact_id`,
+        and the component ID associated with an edX course by querying
+        `edxlearndot.models.CourseMapping`.
+
+        Arguments:
+            contact_id (int): the numeric Learndot contact ID.
+            component_id (int): the numeric Learndot component ID.
+
+        Returns:
+            int: the numeric Learndot enrolment ID.
+
+        Raises:
+            LearnDotAPIException: if multiple enrollments were found, but
+                could not be sorted so that the latest one could be determined.
+        """
+
+        log.info("Looking up Learndot enrolment for contact %s, component %s.", contact_id, component_id)
+
+        enrolment_query = {
+            "contactId": [contact_id],
+            "componentId": [component_id]
+        }
+
+        response = requests.post(
+            self.get_enrolment_search_url(),
+            headers=self.get_api_request_headers(),
+            json=enrolment_query
+        )
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            msg = "Error looking up Learndot enrolment for contact {}, component {}: {}".format(
+                contact_id,
+                component_id,
+                e
+            )
+            log.error(msg)
+            raise LearndotAPIException(msg)
+
+        enrolments = [e for e in response.json()["results"] if e["status"] != "CANCELLED"]
+        enrolment_id = None
+        if len(enrolments) == 1:
+            enrolment_id = enrolments[0]["id"]
+        elif len(enrolments) > 1:
+            try:
+                enrolment_id = sort_enrolments_by_expiry(enrolments)[-1]["id"]
+                log.info(
+                    (
+                        "Multiple enrolments exist for contact %s, component %s. "
+                        "Choosing the one with the latest expiry date: %s"
+                    ),
+                    contact_id,
+                    component_id,
+                    enrolment_id
+                )
+            except (ValueError, OverflowError) as e:
+                msg = (
+                    "Multiple enrolments exist for contact {}, component {}, but they could not be sorted "
+                    "by expiry date to determine the latest one. The error raised while sorting was: {}"
+                ).format(contact_id, component_id, e)
+                log.error(msg)
+                raise LearndotAPIException(msg)
+
+        return enrolment_id
+
+    def set_enrolment_status(self, enrolment_id, status):
+        """
+        Sets the status of a Learndot enrollment record.
+
+        Arguments:
+            enrolment_id (int): the numeric Learndot enrollment ID
+            status (str): a status string which must be valid according to
+                          `edxlearndot.learndotapi.EnrolmentStatus`.
+        Returns:
+            None
+
+        Raises:
+            LearndotAPIException: if the requested status is invalid, or
+                Requests throws anything.
+        """
+        log.info("Setting Learndot enrolment status to %s for enrolment %s.", status, enrolment_id)
+
+        if not EnrolmentStatus.is_valid(status):
+            msg = "Invalid enrolment status \"{}\".".format(status)
+            log.error(msg)
+            raise LearndotAPIException(msg)
+
+        response = requests.post(
+            self.get_enrolment_management_url_template().format(enrolment_id=enrolment_id),
+            headers=self.get_api_request_headers(),
+            json={"status": status}
+        )
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            msg = "Error trying to set status of enrolment {} to {}: {}".format(enrolment_id, status, e)
+            log.error(msg)
+            raise LearndotAPIException(msg)

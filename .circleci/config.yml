@@ -1,0 +1,12 @@
+version: 2
+jobs:
+  build:
+    environment:
+      - OPENEDX_REPO: https://github.com/open-craft/edx-platform
+      - OPENEDX_RELEASE: opencraft-release/ginkgo.1-cloudera
+    docker:
+      - image: circleci/python:2.7.14-stretch-browsers
+    steps:
+      - checkout
+      - run: sudo apt install tox
+      - run: tox
