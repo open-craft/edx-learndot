@@ -11,7 +11,7 @@ from openedx.core.djangoapps.xmodule_django.models import CourseKeyField
 
 class CourseMapping(models.Model):
     """A mapping of edX courses to Learndot components."""
-    learndot_component_id = models.IntegerField(unique=True, help_text="The numeric ID of the Learndot component.")
+    learndot_component_id = models.IntegerField(help_text="The numeric ID of the Learndot component.")
     edx_course_key = CourseKeyField(max_length=255, db_index=True, help_text="The edX course ID.")
 
     class Meta(object):
