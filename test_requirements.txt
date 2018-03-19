@@ -1,7 +1,13 @@
 -e .
+PyContracts
 caniusepython3
+celery
 coverage
+django-crum
 edx-lint
 mock
 pylint
+pytz
+sortedcontainers
 tox
+xblock
