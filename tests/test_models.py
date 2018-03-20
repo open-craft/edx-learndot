@@ -20,12 +20,19 @@ class CourseMappingTestCase(TestCase):
         self.course1_key = CourseKey.from_string("course-v1:Test+TestCourse+201801")
         self.course2_key = CourseKey.from_string("course-v1:Test+TestCourse+201802")
 
-    def test_only_one_course_is_permitted_per_component(self):
+    def test_many_to_many_mapping(self):
+        """
+        You can have more than one Learndot component per edX course, and
+        vice versa, but only one mapping for any pair.
+        """
+        CourseMapping.objects.create(learndot_component_id=1, edx_course_key=self.course1_key)
+        CourseMapping.objects.create(learndot_component_id=1, edx_course_key=self.course2_key)
+        CourseMapping.objects.create(learndot_component_id=2, edx_course_key=self.course1_key)
+        CourseMapping.objects.create(learndot_component_id=2, edx_course_key=self.course2_key)
+
+        self.assertEqual(CourseMapping.objects.count(), 4)
+        self.assertEqual(CourseMapping.objects.filter(edx_course_key=self.course1_key).count(), 2)
+        self.assertEqual(CourseMapping.objects.filter(edx_course_key=self.course2_key).count(), 2)
+
         with self.assertRaises(IntegrityError):
             CourseMapping.objects.create(learndot_component_id=1, edx_course_key=self.course1_key)
-            CourseMapping.objects.create(learndot_component_id=1, edx_course_key=self.course2_key)
-
-    def test_multiple_components_per_course_is_ok(self):
-        CourseMapping.objects.create(learndot_component_id=1, edx_course_key=self.course1_key)
-        CourseMapping.objects.create(learndot_component_id=2, edx_course_key=self.course1_key)
-        self.assertEqual(CourseMapping.objects.filter(edx_course_key=self.course1_key).count(), 2)
