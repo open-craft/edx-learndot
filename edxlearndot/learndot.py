@@ -252,7 +252,7 @@ class LearndotAPIClient(LearndotAPIClientBase):
             headers=self.get_api_request_headers(),
             json=contact_query
         )
-        response.raise_for_status()
+
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:

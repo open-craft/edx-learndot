@@ -35,9 +35,18 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
+            "-u",
+            "--username",
+            action='append',
+            dest='users',
+            default=[],
+            help=("""If usernames are given, only update enrollments for those users.""")
+        )
+
+        parser.add_argument(
             "course_id",
             nargs="*",
-            help=("""If one or more course IDs are given, only update enrollments for those courses.""")
+            help=("""If course IDs are given, only update enrollments for those courses.""")
         )
 
     def handle(self, *args, **options):
@@ -78,7 +87,10 @@ class Command(BaseCommand):
 
             log.info("Processing enrollments in course %s", cm.edx_course_key)
 
-            enrollments = CourseEnrollment.objects.filter(course=cm.edx_course_key)
+            enrollments = CourseEnrollment.objects.filter(course_id=cm.edx_course_key)
+            if options["users"]:
+                enrollments = enrollments.filter(user__username__in=options["users"])
+
             for enrollment in enrollments:
                 contact_id = learndot_client.get_contact_id(enrollment.user)
                 if not contact_id:
