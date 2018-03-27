@@ -22,6 +22,11 @@ import os
 import dateutil.parser
 import requests
 from django.conf import settings
+from django.core.cache import cache
+from django.core.exceptions import MultipleObjectsReturned
+from django.db import IntegrityError
+
+from edxlearndot.models import EnrolmentStatusLog
 
 log = logging.getLogger(__name__)
 
@@ -247,6 +252,13 @@ class LearndotAPIClient(LearndotAPIClientBase):
 
         contact_query = {"email": [user.email]}
 
+        contact_cache_key = 'edxlearndot-contact-{}'.format(user.id)
+
+        cached_contact_id = cache.get(contact_cache_key)
+        if cached_contact_id is not None:
+            log.info("Using cached contact ID %s", cached_contact_id)
+            return cached_contact_id
+
         response = requests.post(
             self.get_contact_search_url(),
             headers=self.get_api_request_headers(),
@@ -269,6 +281,10 @@ class LearndotAPIClient(LearndotAPIClientBase):
             msg = "Multiple Learndot contacts found for user {}: {}".format(user, surfeit)
             log.error(msg)
             raise LearndotAPIException(msg)
+
+        if contact_id is not None:
+            log.info("Caching Learndot contact ID %s for user %s", contact_id, user)
+            cache.set(contact_cache_key, contact_id)
 
         return contact_id
 
@@ -293,6 +309,13 @@ class LearndotAPIClient(LearndotAPIClientBase):
         """
 
         log.info("Looking up Learndot enrolment for contact %s, component %s.", contact_id, component_id)
+
+        enrolment_cache_key = 'edxlearndot-enrolment-{}-{}'.format(contact_id, component_id)
+
+        cached_enrolment_id = cache.get(enrolment_cache_key)
+        if cached_enrolment_id is not None:
+            log.info("Using cached enrolment ID %s", cached_enrolment_id)
+            return cached_enrolment_id
 
         enrolment_query = {
             "contactId": [contact_id],
@@ -339,16 +362,29 @@ class LearndotAPIClient(LearndotAPIClientBase):
                 log.error(msg)
                 raise LearndotAPIException(msg)
 
+        if enrolment_id is not None:
+            log.info(
+                "Caching Learndot enrolment ID %s for contact %s, component %s",
+                enrolment_id, contact_id, component_id
+            )
+            cache.set(enrolment_cache_key, enrolment_id)
+
         return enrolment_id
 
-    def set_enrolment_status(self, enrolment_id, status):
+    def set_enrolment_status(self, enrolment_id, status, unconditional=False):
         """
         Sets the status of a Learndot enrollment record.
 
         Arguments:
             enrolment_id (int): the numeric Learndot enrollment ID
+
             status (str): a status string which must be valid according to
                           `edxlearndot.learndotapi.EnrolmentStatus`.
+
+            unconditional (bool): whether to unconditionally send the new
+                                  status to Learndot, instead of checking
+                                  EnrolmentStatusLog records to see if it
+                                  has already been sent.
         Returns:
             None
 
@@ -363,14 +399,112 @@ class LearndotAPIClient(LearndotAPIClientBase):
             log.error(msg)
             raise LearndotAPIException(msg)
 
+        if not unconditional:
+            try:
+                enrolment_status = EnrolmentStatusLog.objects.get(learndot_enrolment_id=enrolment_id)
+                if enrolment_status.status == EnrolmentStatus.PASSED:
+                    log.info(
+                        "Learndot enrolment was logged as set to %s at %s, so skipping update.",
+                        enrolment_status.status,
+                        enrolment_status.updated_at
+                    )
+                    return
+            except EnrolmentStatusLog.DoesNotExist:
+                pass
+
         response = requests.post(
             self.get_enrolment_management_url_template().format(enrolment_id=enrolment_id),
             headers=self.get_api_request_headers(),
             json={"status": status}
         )
+
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
             msg = "Error trying to set status of enrolment {} to {}: {}".format(enrolment_id, status, e)
             log.error(msg)
             raise LearndotAPIException(msg)
+
+        try:
+            enrolment_status_log, _created = EnrolmentStatusLog.objects.get_or_create(
+                learndot_enrolment_id=enrolment_id
+            )
+            enrolment_status_log.status = status
+            enrolment_status_log.save()
+            log.info(
+                "Recorded status of enrolment %s as %s at %s",
+                enrolment_status_log.learndot_enrolment_id,
+                enrolment_status_log.status,
+                enrolment_status_log.updated_at
+            )
+        except (IntegrityError, MultipleObjectsReturned) as e:
+            log.error("Error recording enrolment status update: %s", e)
+
+
+class LearndotAPIClientMock(LearndotAPIClientBase):
+    """
+    Mock client for tests.
+    """
+    DOES_NOT_EXIST_ID = 1
+
+    enrolments = {}
+
+    def get_api_key(self):
+        return "bababababababababababa"
+
+    def get_api_base_url(self):
+        return "https://localhost/learndot/v2/api"
+
+    def get_contact_id(self, user):
+        """
+        Mock implementation just returns the user ID as the contact ID.
+
+        If the user is None, or the user ID is self.DOES_NOT_EXIST_ID,
+        the mock contact does not exist.
+        """
+
+        if user is None or user.id == self.DOES_NOT_EXIST_ID:
+            return None
+
+        return user.id
+
+    def get_enrolment_id(self, contact_id, component_id):
+        """
+        Mock implementation just returns the concatentation of the two IDs.
+
+        If either is None or self.DOES_NOT_EXIST_ID, the mock
+        enrolment does not exist.
+        """
+
+        if (
+                contact_id is None or component_id is None or
+                contact_id == self.DOES_NOT_EXIST_ID or component_id == self.DOES_NOT_EXIST_ID
+        ):
+            return None
+
+        return int('{}{}'.format(contact_id, component_id))
+
+    def set_enrolment_status(self, enrolment_id, status):
+        """
+        Stores the status under the given enrolment ID in self.enrolments.
+        """
+        if not EnrolmentStatus.is_valid(status):
+            msg = "Invalid enrolment status \"{}\".".format(status)
+            log.error(msg)
+            raise LearndotAPIException(msg)
+
+        if enrolment_id == self.DOES_NOT_EXIST_ID:
+            # the real API would 404
+            msg = "Error trying to set status of enrolment {} to {}: not found".format(enrolment_id, status, )
+            raise LearndotAPIException(msg)
+
+        self.enrolments[enrolment_id] = status
+
+        try:
+            enrolment_status_log, _created = EnrolmentStatusLog.objects.get_or_create(
+                learndot_enrolment_id=enrolment_id
+            )
+            enrolment_status_log.status = status
+            enrolment_status_log.save()
+        except (IntegrityError, MultipleObjectsReturned) as e:
+            log.error("Error recording enrolment status update: %s", e)

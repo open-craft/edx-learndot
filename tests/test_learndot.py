@@ -6,7 +6,11 @@ from __future__ import absolute_import, unicode_literals
 
 import unittest
 
-from edxlearndot.learndot import EnrolmentStatus, compare_enrolment_sort_keys, sort_enrolments_by_expiry
+from edxlearndot.learndot import (
+    EnrolmentStatus, LearndotAPIClientMock, LearndotAPIException,
+    compare_enrolment_sort_keys, sort_enrolments_by_expiry
+)
+from edxlearndot.models import EnrolmentStatusLog
 
 
 class TestEnrolmentSorting(unittest.TestCase):
@@ -201,7 +205,38 @@ class TestEnrolmentSorting(unittest.TestCase):
 
 
 class TestEnrolmentStatus(unittest.TestCase):
-
+    """
+    Test for valid values in edxlearndot.learndot.EnrolmentStatus.
+    """
     def test_validity_check(self):
         self.assertTrue(EnrolmentStatus.is_valid("PASSED"))
         self.assertFalse(EnrolmentStatus.is_valid("BUNGLED"))
+
+
+class TestLearndot(unittest.TestCase):
+    """
+    Test edxlearndot.learndot.
+
+    Without actually talking to a Learndot sandbox, we're limited in
+    what we can test, but we can use a mock client to check tangents
+    like the EnrolmentStatusLog recording.
+    """
+
+    def test_set_enrolment_status_success_is_logged(self):
+        """
+        Test that a successful update is logged locally.
+        """
+        client = LearndotAPIClientMock()
+
+        client.set_enrolment_status(2, "PASSED")
+        self.assertEqual(EnrolmentStatusLog.objects.filter(learndot_enrolment_id=2).count(), 1)
+
+    def test_set_enrolment_status_failure_is_not_logged(self):
+        """
+        Test that a failed update creates no local status log records.
+        """
+        client = LearndotAPIClientMock()
+
+        with self.assertRaises(LearndotAPIException):
+            client.set_enrolment_status(client.DOES_NOT_EXIST_ID, "PASSED")
+        self.assertEqual(EnrolmentStatusLog.objects.filter(learndot_enrolment_id=1).count(), 0)

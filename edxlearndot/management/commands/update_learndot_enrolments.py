@@ -37,10 +37,23 @@ class Command(BaseCommand):
         parser.add_argument(
             "-u",
             "--username",
-            action='append',
-            dest='users',
+            action="append",
+            dest="users",
+            metavar="user",
             default=[],
             help=("""If usernames are given, only update enrollments for those users.""")
+        )
+
+        parser.add_argument(
+            "-f",
+            "--force",
+            dest="unconditional",
+            action="store_true",
+            default=False,
+            help=(
+                """Skip the usual attempt to avoid API calls for enrolments that have already been updated, and """
+                """just send Learndot all current enrolment status information."""
+            )
         )
 
         parser.add_argument(
@@ -70,7 +83,7 @@ class Command(BaseCommand):
                 log.error("No course mappings were found for your specified course IDs.")
             else:
                 log.error("No course mappings were found.")
-            sys.exit(1)
+                sys.exit(1)
 
         learndot_client = LearndotAPIClient()
 
@@ -119,16 +132,19 @@ class Command(BaseCommand):
                 # to explicitly update Learndot.
                 #
                 course_grade = CourseGradeFactory().read(enrollment.user, course)
-                if course_grade.passed and should_persist_grades(cm.edx_course_key):
+                if not course_grade:
+                    log.info(
+                        "Not setting enrolment status for user %s in course %s, because no grade is available.",
+                        enrollment.user,
+                        cm.edx_course_key
+                    )
+                elif course_grade.passed and should_persist_grades(cm.edx_course_key):
                     log.info("Grades are persistent; explicitly updating Learndot enrolment.")
                     try:
-                        learndot_client.set_enrolment_status(enrolment_id, EnrolmentStatus.PASSED)
-                        log.info(
-                            "Enrolment status set to %s for enrolment %s of learner %s in course %s",
-                            EnrolmentStatus.PASSED,
+                        learndot_client.set_enrolment_status(
                             enrolment_id,
-                            enrollment.user,
-                            cm.edx_course_key
+                            EnrolmentStatus.PASSED,
+                            unconditional=options["unconditional"]
                         )
                     except LearndotAPIException as e:
                         log.error("Could not set status of enrolment %s: %s", enrolment_id, e)
