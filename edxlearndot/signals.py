@@ -53,12 +53,5 @@ def listen_for_passing_grade(sender, user, course_key, **kwargs):  # pylint: dis
 
             try:
                 learndot_client.set_enrolment_status(enrolment_id, EnrolmentStatus.PASSED)
-                log.info(
-                    "Enrolment status set to %s for enrolment %s of learner %s in course %s",
-                    EnrolmentStatus.PASSED,
-                    enrolment_id,
-                    user,
-                    course_key
-                )
             except LearndotAPIException as e:
                 log.error("Could not set status of enrolment %s: %s", enrolment_id, e)
