@@ -19,7 +19,7 @@ from lms.djangoapps.grades.config import should_persist_grades
 from lms.djangoapps.grades.new.course_grade_factory import CourseGradeFactory
 from student.models import CourseEnrollment
 
-from edxlearndot.learndot import EnrolmentStatus, LearndotAPIClient, LearndotAPIException
+from edxlearndot.learndot import LearndotAPIClient
 from edxlearndot.models import CourseMapping
 
 
@@ -78,12 +78,12 @@ class Command(BaseCommand):
         if course_key_list:
             course_mappings = course_mappings.filter(edx_course_key__in=course_key_list)
 
-        if course_mappings.count() == 0:
+        if not course_mappings.exists():
             if options["course_id"]:
                 log.error("No course mappings were found for your specified course IDs.")
             else:
                 log.error("No course mappings were found.")
-                sys.exit(1)
+            sys.exit(1)
 
         learndot_client = LearndotAPIClient()
 
@@ -107,15 +107,12 @@ class Command(BaseCommand):
             for enrollment in enrollments:
                 contact_id = learndot_client.get_contact_id(enrollment.user)
                 if not contact_id:
-                    log.error("Could not locate Learndot contact for user %s", enrollment.user)
+                    log.info(
+                        "Not setting enrolment status for user %s in course %s, because contact_id is None .",
+                        enrollment.user,
+                        cm.edx_course_key
+                    )
                     continue
-
-                enrolment_id = learndot_client.get_enrolment_id(contact_id, cm.learndot_component_id)
-
-                if not enrolment_id:
-                    log.error("No enrolment found for contact %s, component %s", contact_id, cm.learndot_component_id)
-                    continue
-
                 #
                 # Disturbingly enough, if persistent grades are not
                 # enabled, it just takes looking up the grade to get
@@ -140,11 +137,8 @@ class Command(BaseCommand):
                     )
                 elif course_grade.passed and should_persist_grades(cm.edx_course_key):
                     log.info("Grades are persistent; explicitly updating Learndot enrolment.")
-                    try:
-                        learndot_client.set_enrolment_status(
-                            enrolment_id,
-                            EnrolmentStatus.PASSED,
-                            unconditional=options["unconditional"]
-                        )
-                    except LearndotAPIException as e:
-                        log.error("Could not set status of enrolment %s: %s", enrolment_id, e)
+                    learndot_client.check_if_enrolment_and_set_status_to_passed(
+                        contact_id,
+                        cm.learndot_component_id,
+                        unconditional=options["unconditional"]
+                    )
