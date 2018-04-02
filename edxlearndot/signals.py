@@ -7,7 +7,7 @@ from __future__ import absolute_import, unicode_literals
 
 import logging
 
-from edxlearndot.learndot import EnrolmentStatus, LearndotAPIClient, LearndotAPIException
+from edxlearndot.learndot import LearndotAPIClient
 from edxlearndot.models import CourseMapping
 
 
@@ -34,19 +34,8 @@ def listen_for_passing_grade(sender, user, course_id, **kwargs):  # pylint: disa
 
     learndot_client = LearndotAPIClient()
     contact_id = learndot_client.get_contact_id(user)
-    if not contact_id:
-        log.error("Could not locate Learndot contact for user %s", user)
 
     if contact_id and course_id:
         course_mappings = CourseMapping.objects.filter(edx_course_key=course_id)
         for cm in course_mappings:
-            enrolment_id = learndot_client.get_enrolment_id(contact_id, cm.learndot_component_id)
-
-            if not enrolment_id:
-                log.error("No enrolment found for contact %s, component %s", contact_id, cm.learndot_component_id)
-                continue
-
-            try:
-                learndot_client.set_enrolment_status(enrolment_id, EnrolmentStatus.PASSED)
-            except LearndotAPIException as e:
-                log.error("Could not set status of enrolment %s: %s", enrolment_id, e)
+            learndot_client.check_if_enrolment_and_set_status_to_passed(contact_id, cm.learndot_component_id)
