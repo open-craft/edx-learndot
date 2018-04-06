@@ -10,9 +10,6 @@ class LearndotAPIClientMock(LearndotAPIClient):
     """
     Mock client for tests.
     """
-    DOES_NOT_EXIST_ID = 1
-
-    enrolments = {}
 
     @override_settings(LEARNDOT_API_KEY='test')
     def get_api_key(self):
@@ -25,10 +22,7 @@ class LearndotAPIClientMock(LearndotAPIClient):
     @responses.activate
     def get_contact_id(self, user):
         """
-        Mock implementation just returns the user ID as the contact ID.
-
-        If the user is None, or the user ID is self.DOES_NOT_EXIST_ID,
-        the mock contact does not exist.
+        Mock response returns for get_contact.
         """
         responses.add(
             responses.POST,
@@ -40,10 +34,7 @@ class LearndotAPIClientMock(LearndotAPIClient):
     @responses.activate
     def get_enrolment_id(self, contact_id, component_id):
         """
-        Mock implementation just returns the concatentation of the two IDs.
-
-        If either is None or self.DOES_NOT_EXIST_ID, the mock
-        enrolment does not exist.
+        Mock response for get_enrolment.
         """
         response = responses.add(
             responses.POST,
@@ -55,11 +46,10 @@ class LearndotAPIClientMock(LearndotAPIClient):
     @responses.activate
     def set_enrolment_status(self, enrolment_id, status, unconditional=False):
         """
-        Stores the status under the given enrolment ID in self.enrolments.
+        Mock response from POST request.
         """
         response = responses.add(
             responses.POST,
             self.get_enrolment_management_url(enrolment_id)
         )
         return super(LearndotAPIClientMock, self).set_enrolment_status(enrolment_id, status)
-
