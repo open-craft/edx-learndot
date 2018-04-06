@@ -11,3 +11,4 @@ pytz
 sortedcontainers
 tox
 xblock
+responses
