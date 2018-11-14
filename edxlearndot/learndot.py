@@ -22,6 +22,7 @@ import os
 
 import dateutil.parser
 import requests
+from retrying import retry
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import MultipleObjectsReturned
@@ -32,11 +33,20 @@ from edxlearndot.models import EnrolmentStatusLog
 log = logging.getLogger(__name__)
 
 
+LEARNDOT_RETRY_WAIT = getattr(settings, 'LEARNDOT_RETRY_WAIT_SECONDS', 5) * 1000
+LEARNDOT_RETRY_MAX_ATTEMPTS = getattr(settings, 'LEARNDOT_RETRY_MAX_ATTEMPTS', 10)
+
+
 class LearndotAPIException(Exception):
     """
     A wrapper around exceptions encountered while using the API.
     """
     pass
+
+    @classmethod
+    def retry_match(cls, exception):
+        """Return True to indicate that we should retry on these exceptions."""
+        return isinstance(exception, cls)
 
 
 def extract_enrolment_sort_key(e):
@@ -192,6 +202,9 @@ class LearndotAPIClient(object):
             "Accept": "application/json"
         }
 
+    @retry(retry_on_exception=LearndotAPIException.retry_match,
+           wait_fixed=LEARNDOT_RETRY_WAIT,
+           stop_max_attempt_number=LEARNDOT_RETRY_MAX_ATTEMPTS)
     def get_contact_id(self, user):
         """
         Tries to look up a Learndot contact using the edX user record.
@@ -240,7 +253,6 @@ class LearndotAPIClient(object):
             surfeit = {c["id"]: (c["_displayName_"], c["email"]) for c in contacts}
             msg = "Multiple Learndot contacts found for user {}: {}".format(user, surfeit)
             log.error(msg)
-            raise LearndotAPIException(msg)
 
         if contact_id is not None:
             log.info("Caching Learndot contact ID %s for user %s", contact_id, user)
@@ -272,6 +284,9 @@ class LearndotAPIClient(object):
             "api/rest/v2/manage/enrolment/{}".format(enrolment_id)
         )
 
+    @retry(retry_on_exception=LearndotAPIException.retry_match,
+           wait_fixed=LEARNDOT_RETRY_WAIT,
+           stop_max_attempt_number=LEARNDOT_RETRY_MAX_ATTEMPTS)
     def get_enrolment_id(self, contact_id, component_id):
         """
         Fetches the most recent Learndot enrolment record.
@@ -355,6 +370,9 @@ class LearndotAPIClient(object):
 
         return enrolment_id
 
+    @retry(retry_on_exception=LearndotAPIException.retry_match,
+           wait_fixed=LEARNDOT_RETRY_WAIT,
+           stop_max_attempt_number=LEARNDOT_RETRY_MAX_ATTEMPTS)
     def set_enrolment_status(self, enrolment_id, status, unconditional=False):
         """
         Sets the status of a Learndot enrollment record.

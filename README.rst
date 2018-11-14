@@ -91,7 +91,7 @@ The test suite uses tox. If you want to test using the master branch of edx-plat
 run ``tox``. To test with another release, or another fork, set one or both of the ``OPENEDX_REPO``
 and ``OPENEDX_RELEASE`` environment variables, e.g.::
 
-  OPENEDX_REPO=https://github.com/example/edx-platform OPENEDX_RELEASE=open-release/ginkgo.1 tox
+  OPENEDX_REPO=https://github.com/example/edx-platform OPENEDX_RELEASE=master tox
 
 
 .. _Open edX: https://open.edx.org/
