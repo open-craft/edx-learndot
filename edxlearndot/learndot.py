@@ -41,7 +41,6 @@ class LearndotAPIException(Exception):
     """
     A wrapper around exceptions encountered while using the API.
     """
-    pass
 
     @classmethod
     def retry_match(cls, exception):
