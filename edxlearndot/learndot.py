@@ -50,7 +50,7 @@ class LearndotAPIException(Exception):
             504 Gateway Timeout
         """
         if (isinstance(exception, cls) and (
-                ("429" in exception.message) or ("504" in exception.message))):
+                ("429" in str(exception)) or ("504" in str(exception)))):
             log.warning("Retrying...")
             return True
         return False
