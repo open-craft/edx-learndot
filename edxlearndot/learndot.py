@@ -44,8 +44,16 @@ class LearndotAPIException(Exception):
 
     @classmethod
     def retry_match(cls, exception):
-        """Return True to indicate that we should retry on these exceptions."""
-        return isinstance(exception, cls)
+        """
+        Return True to indicate that we should retry on these API errors:
+            429 Too Many Requests
+            504 Gateway Timeout
+        """
+        if (isinstance(exception, cls) and (
+                ("429" in exception.message) or ("504" in exception.message))):
+            log.warning("Retrying...")
+            return True
+        return False
 
 
 def extract_enrolment_sort_key(e):

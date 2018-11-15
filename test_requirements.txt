@@ -3,6 +3,7 @@ PyContracts
 caniusepython3
 celery
 coverage
+ddt
 django-crum
 edx-lint
 mock
