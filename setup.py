@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name='edx-learndot',
-    version='0.0.1',
+    version='0.1.0',
     description="""Django app to integrate edX with LearnDot""",
     author='OpenCraft',
     url='https://github.com/open-craft/edxlearndot',
@@ -33,6 +33,7 @@ setup(
         "edx-opaque-keys",
         "python-dateutil",
         "requests",
+        "retrying>=1.3,<2.0",
     ],
     entry_points={
         "lms.djangoapp": [
