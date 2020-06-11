@@ -43,6 +43,12 @@ def isPython27():
     """
     return (sys.version_info[0] < 3)
 
+def cmp(a, b):
+    if isPython27():
+        return cmp(a, b)
+    else:
+        return (a > b) - (a < b)
+
 class LearndotAPIException(Exception):
     """
     A wrapper around exceptions encountered while using the API.
