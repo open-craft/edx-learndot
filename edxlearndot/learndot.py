@@ -42,7 +42,7 @@ def isPython27():
     """
     Checks if it is Python 2.7 or Not
     """
-    return (sys.version_info[0] < 3)
+    return sys.version_info[0] < 3
 
 def cmp(a, b):
     if isPython27():
@@ -138,7 +138,7 @@ def extract_and_compare_enrolment_sort_keys(enrolment1, enrolment2):
     """
     Extracts key for sorting enrolments then compares those enrolment keys
 
-    This function is a combination of both `compare_enrolment_sort_keys` and 
+    This function is a combination of both `compare_enrolment_sort_keys` and
     `extract_enrolment_sort_key` such that it can be used with `functools.cmp_to_key`
 
     Arguments:
@@ -146,7 +146,7 @@ def extract_and_compare_enrolment_sort_keys(enrolment1, enrolment2):
         enrolment2: a dict parsed from a Learndot JSON enrolment
 
     Returns:
-        Output of `compare_enrolment_sort_keys`, which is 
+        Output of `compare_enrolment_sort_keys`, which is
         -1 if t1 < t2, 1 if t1 > t2, or 0 if they're equal
     """
     enrolment1_expiry = extract_enrolment_sort_key(enrolment1)
@@ -175,14 +175,13 @@ def sort_enrolments_by_expiry(enrolment_list):
         ValueError: if a sorting date can't be parsed
         OverflowError: if a sorting date can't be fit into the largest valid C integer
     """
-    
     if isPython27():
         return sorted(enrolment_list, key=extract_enrolment_sort_key, cmp=compare_enrolment_sort_keys)
     else:
         return sorted(enrolment_list, key=functools.cmp_to_key(extract_and_compare_enrolment_sort_keys))
 
 
-class EnrolmentStatus(object):
+class EnrolmentStatus(object):  # pylint: disable=useless-object-inheritance
     """
     Basically an enum of valid Learndot enrolment status values.
 
@@ -202,7 +201,7 @@ class EnrolmentStatus(object):
         return hasattr(cls, status) and getattr(cls, status) == status
 
 
-class LearndotAPIClient(object):
+class LearndotAPIClient(object):  # pylint: disable=useless-object-inheritance
     """
     Client for the live Learndot API.
     """

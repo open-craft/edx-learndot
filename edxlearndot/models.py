@@ -14,7 +14,7 @@ class CourseMapping(models.Model):
     learndot_component_id = models.BigIntegerField(help_text="The numeric ID of the Learndot component.")
     edx_course_key = CourseKeyField(max_length=255, db_index=True, help_text="The edX course ID.")
 
-    class Meta(object):
+    class Meta(object):  # pylint: disable=useless-object-inheritance
         app_label = "edxlearndot"
         unique_together = ("learndot_component_id", "edx_course_key")
 
@@ -38,7 +38,7 @@ class EnrolmentStatusLog(models.Model):
         help_text="The last status sent to Learndot."
     )
 
-    class Meta(object):
+    class Meta(object):  # pylint: disable=useless-object-inheritance
         app_label = "edxlearndot"
 
     def __str__(self):
