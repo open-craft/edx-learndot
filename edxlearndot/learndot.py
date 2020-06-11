@@ -243,7 +243,7 @@ class LearndotAPIClient(object):
 
         contact_query = {"email": [user.email]}
 
-        hashed_email = hashlib.md5(user.email).hexdigest()
+        hashed_email = hashlib.md5(user.email.encode('utf-8')).hexdigest()
         contact_cache_key = 'edxlearndot-contact-{}-{}'.format(hashed_email, user.id)
 
         cached_contact_id = cache.get(contact_cache_key)
