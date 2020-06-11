@@ -16,6 +16,7 @@ enrolments and edX enrollments.
 
 from __future__ import absolute_import, unicode_literals
 
+import functools
 import hashlib
 import logging
 import os
@@ -133,6 +134,26 @@ def compare_enrolment_sort_keys(t1, t2):
     return 0
 
 
+def extract_and_compare_enrolment_sort_keys(enrolment1, enrolment2):
+    """
+    Extracts key for sorting enrolments then compares those enrolment keys
+
+    This function is a combination of both `compare_enrolment_sort_keys` and 
+    `extract_enrolment_sort_key` such that it can be used with `functools.cmp_to_key`
+
+    Arguments:
+        enrolment1: a dict parsed from a Learndot JSON enrolment
+        enrolment2: a dict parsed from a Learndot JSON enrolment
+
+    Returns:
+        Output of `compare_enrolment_sort_keys`, which is 
+        -1 if t1 < t2, 1 if t1 > t2, or 0 if they're equal
+    """
+    enrolment1_expiry = extract_enrolment_sort_key(enrolment1)
+    enrolment2_expiry = extract_enrolment_sort_key(enrolment2)
+
+    return compare_enrolment_sort_keys(enrolment1_expiry, enrolment2_expiry)
+
 def sort_enrolments_by_expiry(enrolment_list):
     """
     Sorts an array of Learndot enrolments by expiry date.
@@ -154,8 +175,11 @@ def sort_enrolments_by_expiry(enrolment_list):
         ValueError: if a sorting date can't be parsed
         OverflowError: if a sorting date can't be fit into the largest valid C integer
     """
-
-    return sorted(enrolment_list, key=extract_enrolment_sort_key, cmp=compare_enrolment_sort_keys)
+    
+    if isPython27():
+        return sorted(enrolment_list, key=extract_enrolment_sort_key, cmp=compare_enrolment_sort_keys)
+    else:
+        return sorted(enrolment_list, key=functools.cmp_to_key(extract_and_compare_enrolment_sort_keys))
 
 
 class EnrolmentStatus(object):
