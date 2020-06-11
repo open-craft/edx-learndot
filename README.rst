@@ -19,6 +19,20 @@ enrolment records when a learner passes an edX course.
 Installation
 ************
 
+Support
+-------
+
+.. list-table::
+  :widths: 80 20
+  :header-rows: 1
+
+  * - edX Platform Release
+    - Tag
+  * - Juniper
+    - v0.2
+  * - Ironwood
+    - v0.1
+
 Prerequisites
 -------------
 
