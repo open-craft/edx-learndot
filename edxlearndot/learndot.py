@@ -19,6 +19,7 @@ from __future__ import absolute_import, unicode_literals
 import hashlib
 import logging
 import os
+import sys
 
 import dateutil.parser
 import requests
@@ -36,6 +37,11 @@ log = logging.getLogger(__name__)
 LEARNDOT_RETRY_WAIT = getattr(settings, 'LEARNDOT_RETRY_WAIT_SECONDS', 5) * 1000
 LEARNDOT_RETRY_MAX_ATTEMPTS = getattr(settings, 'LEARNDOT_RETRY_MAX_ATTEMPTS', 10)
 
+def isPython27():
+    """
+    Checks if it is Python 2.7 or Not
+    """
+    return (sys.version_info[0] < 3)
 
 class LearndotAPIException(Exception):
     """
