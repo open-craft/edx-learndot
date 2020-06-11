@@ -20,7 +20,7 @@ class LearndotIntegrationConfig(AppConfig):
     plugin_app = {
         PluginSettings.CONFIG: {
             ProjectType.LMS: {
-                SettingsType.AWS: {
+                SettingsType.PRODUCTION: {
                     PluginSettings.RELATIVE_PATH: u'settings',
                 },
                 SettingsType.COMMON: {
