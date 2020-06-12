@@ -19,6 +19,7 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 3.5',
         'Framework :: Django',
+        'Framework :: Django :: 2.2.12',
         'Framework :: Django :: 3.0',
         'Framework :: Django :: 3.1',
     ],
@@ -27,7 +28,7 @@ setup(
         'tests'
     ],
     install_requires=[
-        "django >= 3.0, < 3.1",
+        "django",
         "edx-opaque-keys",
         "python-dateutil",
         "requests",
