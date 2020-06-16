@@ -16,6 +16,7 @@ enrolments and edX enrollments.
 
 from __future__ import absolute_import, unicode_literals
 
+import functools
 import hashlib
 import logging
 import os
@@ -36,6 +37,19 @@ log = logging.getLogger(__name__)
 LEARNDOT_RETRY_WAIT = getattr(settings, 'LEARNDOT_RETRY_WAIT_SECONDS', 5) * 1000
 LEARNDOT_RETRY_MAX_ATTEMPTS = getattr(settings, 'LEARNDOT_RETRY_MAX_ATTEMPTS', 10)
 
+def cmp(a, b):
+    """
+    Compares elements of two lists
+
+    Compare the two objects x and y and return an integer according
+    to the outcome.
+
+    The return value is:
+        - negative if x < y
+        - zero if x == y
+        - strictly positive if x > y
+    """
+    return (a > b) - (a < b)
 
 class LearndotAPIException(Exception):
     """
@@ -121,6 +135,26 @@ def compare_enrolment_sort_keys(t1, t2):
     return 0
 
 
+def extract_and_compare_enrolment_sort_keys(enrolment1, enrolment2):
+    """
+    Extracts key for sorting enrolments then compares those enrolment keys
+
+    This function is a combination of both `compare_enrolment_sort_keys` and
+    `extract_enrolment_sort_key` such that it can be used with `functools.cmp_to_key`
+
+    Arguments:
+        enrolment1: a dict parsed from a Learndot JSON enrolment
+        enrolment2: a dict parsed from a Learndot JSON enrolment
+
+    Returns:
+        Output of `compare_enrolment_sort_keys`, which is
+        -1 if t1 < t2, 1 if t1 > t2, or 0 if they're equal
+    """
+    enrolment1_expiry = extract_enrolment_sort_key(enrolment1)
+    enrolment2_expiry = extract_enrolment_sort_key(enrolment2)
+
+    return compare_enrolment_sort_keys(enrolment1_expiry, enrolment2_expiry)
+
 def sort_enrolments_by_expiry(enrolment_list):
     """
     Sorts an array of Learndot enrolments by expiry date.
@@ -142,11 +176,10 @@ def sort_enrolments_by_expiry(enrolment_list):
         ValueError: if a sorting date can't be parsed
         OverflowError: if a sorting date can't be fit into the largest valid C integer
     """
+    return sorted(enrolment_list, key=functools.cmp_to_key(extract_and_compare_enrolment_sort_keys))
 
-    return sorted(enrolment_list, key=extract_enrolment_sort_key, cmp=compare_enrolment_sort_keys)
 
-
-class EnrolmentStatus(object):
+class EnrolmentStatus:
     """
     Basically an enum of valid Learndot enrolment status values.
 
@@ -166,7 +199,7 @@ class EnrolmentStatus(object):
         return hasattr(cls, status) and getattr(cls, status) == status
 
 
-class LearndotAPIClient(object):
+class LearndotAPIClient:
     """
     Client for the live Learndot API.
     """
@@ -231,7 +264,7 @@ class LearndotAPIClient(object):
 
         contact_query = {"email": [user.email]}
 
-        hashed_email = hashlib.md5(user.email).hexdigest()
+        hashed_email = hashlib.md5(user.email.encode('utf-8')).hexdigest()
         contact_cache_key = 'edxlearndot-contact-{}-{}'.format(hashed_email, user.id)
 
         cached_contact_id = cache.get(contact_cache_key)
