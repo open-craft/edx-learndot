@@ -101,12 +101,20 @@ command, e.g.::
 Running edx-learndot tests
 **************************
 
-The test suite uses tox. If you want to test using the master branch of edx-platform, you can just
-run ``tox``. To test with another release, or another fork, set one or both of the ``OPENEDX_REPO``
-and ``OPENEDX_RELEASE`` environment variables, e.g.::
+The test suite uses ``tox``, so install it into a virtualenv to run the tests::
 
-  OPENEDX_REPO=https://github.com/example/edx-platform OPENEDX_RELEASE=master tox
+  pip install tox
 
+If you want to test using the master branch of edx-platform, you can just run ``tox``.
+
+To test with another release, or another fork, set one or both of the ``OPENEDX_REPO`` and
+``OPENEDX_RELEASE`` environment variables.  To save time cloning this large repo, provide a
+reference to a previously cloned version of edx-platform. e.g.::
+
+  export OPENEDX_REFERENCE_REPO=/path/to/edx-platform
+  export OPENEDX_REPO=https://github.com/open-craft/edx-platform
+  export OPENEDX_RELEASE=opencraft-release/juniper.1
+  tox
 
 .. _Open edX: https://open.edx.org/
 .. _Learndot: https://www.learndot.com
