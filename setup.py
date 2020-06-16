@@ -28,7 +28,7 @@ setup(
         'tests'
     ],
     install_requires=[
-        "django>=2.2, >3, <3.1",
+        "django>=2.2,<3",
         "edx-opaque-keys",
         "python-dateutil",
         "requests",
