@@ -179,7 +179,7 @@ def sort_enrolments_by_expiry(enrolment_list):
     return sorted(enrolment_list, key=functools.cmp_to_key(extract_and_compare_enrolment_sort_keys))
 
 
-class EnrolmentStatus(object):  # pylint: disable=useless-object-inheritance
+class EnrolmentStatus:
     """
     Basically an enum of valid Learndot enrolment status values.
 
@@ -199,7 +199,7 @@ class EnrolmentStatus(object):  # pylint: disable=useless-object-inheritance
         return hasattr(cls, status) and getattr(cls, status) == status
 
 
-class LearndotAPIClient(object):  # pylint: disable=useless-object-inheritance
+class LearndotAPIClient:
     """
     Client for the live Learndot API.
     """
