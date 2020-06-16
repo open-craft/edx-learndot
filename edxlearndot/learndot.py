@@ -20,7 +20,6 @@ import functools
 import hashlib
 import logging
 import os
-import sys
 
 import dateutil.parser
 import requests
@@ -38,17 +37,19 @@ log = logging.getLogger(__name__)
 LEARNDOT_RETRY_WAIT = getattr(settings, 'LEARNDOT_RETRY_WAIT_SECONDS', 5) * 1000
 LEARNDOT_RETRY_MAX_ATTEMPTS = getattr(settings, 'LEARNDOT_RETRY_MAX_ATTEMPTS', 10)
 
-def isPython27():
-    """
-    Checks if it is Python 2.7 or Not
-    """
-    return sys.version_info[0] < 3
-
 def cmp(a, b):
-    if isPython27():
-        return cmp(a, b)
-    else:
-        return (a > b) - (a < b)
+    """
+    Compares elements of two lists
+
+    Compare the two objects x and y and return an integer according
+    to the outcome.
+
+    The return value is:
+        - negative if x < y
+        - zero if x == y
+        - strictly positive if x > y
+    """
+    return (a > b) - (a < b)
 
 class LearndotAPIException(Exception):
     """
@@ -175,10 +176,7 @@ def sort_enrolments_by_expiry(enrolment_list):
         ValueError: if a sorting date can't be parsed
         OverflowError: if a sorting date can't be fit into the largest valid C integer
     """
-    if isPython27():
-        return sorted(enrolment_list, key=extract_enrolment_sort_key, cmp=compare_enrolment_sort_keys)
-    else:
-        return sorted(enrolment_list, key=functools.cmp_to_key(extract_and_compare_enrolment_sort_keys))
+    return sorted(enrolment_list, key=functools.cmp_to_key(extract_and_compare_enrolment_sort_keys))
 
 
 class EnrolmentStatus(object):  # pylint: disable=useless-object-inheritance
