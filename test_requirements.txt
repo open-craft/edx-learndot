@@ -13,3 +13,4 @@ sortedcontainers
 tox
 xblock
 responses
+edx-django-utils

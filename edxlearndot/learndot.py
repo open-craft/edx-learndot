@@ -210,13 +210,13 @@ class LearndotAPIClient:
         """
         try:
             return settings.LEARNDOT_API_KEY
-        except AttributeError:
+        except AttributeError as attr_error:
             msg = (
                 "The Learndot API key could not be found in your Django settings. "
                 "Please add it as settings.LEARNDOT_API_KEY."
             )
             log.fatal(msg)
-            raise LearndotAPIException(msg)
+            raise LearndotAPIException(msg) from attr_error
 
     def get_api_base_url(self):
         """
@@ -224,13 +224,13 @@ class LearndotAPIClient:
         """
         try:
             return settings.LEARNDOT_API_BASE_URL
-        except AttributeError:
+        except AttributeError as attr_error:
             msg = (
                 "The Learndot API base URL could not be found in your Django settings. "
                 "Please add it as settings.LEARNDOT_API_BASE_URL."
             )
             log.fatal(msg)
-            raise LearndotAPIException(msg)
+            raise LearndotAPIException(msg) from attr_error
 
     def get_api_request_headers(self):
         """
@@ -283,7 +283,7 @@ class LearndotAPIClient:
         except requests.exceptions.HTTPError as e:
             msg = "Error looking up Learndot contact for user {}: {}".format(user, e)
             log.error(msg)
-            raise LearndotAPIException(msg)
+            raise LearndotAPIException(msg) from e
 
         contacts = response.json()["results"]
         contact_id = None
@@ -375,7 +375,7 @@ class LearndotAPIClient:
                 e
             )
             log.error(msg)
-            raise LearndotAPIException(msg)
+            raise LearndotAPIException(msg) from e
 
         enrolments = [e for e in response.json()["results"] if e["status"] != "CANCELLED"]
         enrolment_id = None
@@ -399,7 +399,7 @@ class LearndotAPIClient:
                     "by expiry date to determine the latest one. The error raised while sorting was: {}"
                 ).format(contact_id, component_id, e)
                 log.error(msg)
-                raise LearndotAPIException(msg)
+                raise LearndotAPIException(msg) from e
 
         if enrolment_id is not None:
             log.info(
@@ -470,7 +470,7 @@ class LearndotAPIClient:
         except requests.exceptions.HTTPError as e:
             msg = "Error trying to set status of enrolment {} to {}: {}".format(enrolment_id, status, e)
             log.error(msg)
-            raise LearndotAPIException(msg)
+            raise LearndotAPIException(msg) from e
 
         try:
             enrolment_status_log, _created = EnrolmentStatusLog.objects.get_or_create(
