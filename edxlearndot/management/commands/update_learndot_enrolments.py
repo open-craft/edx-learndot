@@ -17,7 +17,7 @@ from opaque_keys.edx.keys import CourseKey
 from lms.djangoapps.courseware.courses import get_course
 from lms.djangoapps.grades.config import should_persist_grades
 from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
-from student.models import CourseEnrollment
+from common.djangoapps.student.models import CourseEnrollment
 
 from edxlearndot.learndot import LearndotAPIClient
 from edxlearndot.models import CourseMapping
