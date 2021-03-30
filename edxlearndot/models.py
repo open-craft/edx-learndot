@@ -19,13 +19,14 @@ class CourseMapping(models.Model):
         unique_together = ("learndot_component_id", "edx_course_key")
 
     def __str__(self):
-        return self.__unicode__().encode("utf8")
+        return str(self.__unicode__())
 
     def __unicode__(self):
         return "learndot_component_id={}, edx_course_key={}".format(
             self.learndot_component_id,
             self.edx_course_key
         )
+
 
 class EnrolmentStatusLog(models.Model):
     """A record of an update to a Learndot enrolment."""
@@ -42,7 +43,7 @@ class EnrolmentStatusLog(models.Model):
         app_label = "edxlearndot"
 
     def __str__(self):
-        return self.__unicode__().encode("utf8")
+        return str(self.__unicode__())
 
     def __unicode__(self):
         return "learndot_enrolment_id={}, status={} at {}".format(

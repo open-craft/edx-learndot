@@ -9,7 +9,7 @@ from django.test import TestCase
 
 from opaque_keys.edx.keys import CourseKey
 
-from edxlearndot.models import CourseMapping
+from edxlearndot.models import CourseMapping, EnrolmentStatusLog
 
 
 class CourseMappingTestCase(TestCase):
@@ -36,3 +36,13 @@ class CourseMappingTestCase(TestCase):
 
         with self.assertRaises(IntegrityError):
             CourseMapping.objects.create(learndot_component_id=1, edx_course_key=self.course1_key)
+
+    def test_model_str(self):
+        course_mapping = CourseMapping.objects.create(learndot_component_id=1, edx_course_key=self.course1_key)
+        self.assertEqual(str(course_mapping), f"learndot_component_id=1, edx_course_key={self.course1_key}")
+
+        sl = EnrolmentStatusLog.objects.create(learndot_enrolment_id=1)
+        self.assertEqual(
+            str(sl),
+            f"learndot_enrolment_id={sl.learndot_enrolment_id}, status={sl.status} at {sl.updated_at}",
+        )
