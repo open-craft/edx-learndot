@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """ Setup to allow pip installs of edx-learndot module """
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='edx-learndot',
-    version='0.2.0',
+    version='0.4.0',
     description="""Django app to integrate edX with LearnDot""",
     author='OpenCraft',
     url='https://github.com/open-craft/edxlearndot',
@@ -23,10 +23,7 @@ setup(
         'Framework :: Django :: 3.0',
         'Framework :: Django :: 3.1',
     ],
-    packages=[
-        'edxlearndot',
-        'tests'
-    ],
+    packages=find_packages(include=['edxlearndot', 'edxlearndot.*']),
     install_requires=[
         "django>=2.2",
         "edx-opaque-keys",
