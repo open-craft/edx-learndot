@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """ Setup to allow pip installs of edx-learndot module """
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='edx-learndot',
@@ -23,10 +23,7 @@ setup(
         'Framework :: Django :: 3.0',
         'Framework :: Django :: 3.1',
     ],
-    packages=[
-        'edxlearndot',
-        'tests'
-    ],
+    packages=find_packages(include=['edxlearndot', 'edxlearndot.*']),
     install_requires=[
         "django>=2.2",
         "edx-opaque-keys",
