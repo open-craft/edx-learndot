@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='edx-learndot',
-    version='0.4.0',
+    version='0.5.0',
     description="""Django app to integrate edX with LearnDot""",
     author='OpenCraft',
     url='https://github.com/open-craft/edxlearndot',
