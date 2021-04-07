@@ -287,6 +287,10 @@ class LearndotAPIClient:
 
         contacts = response.json()["results"]
         contact_id = None
+
+        # Learndot API query doesn't use exact matching, so filter out any contacts whose emails don't match.
+        contacts = [c for c in contacts if c["email"] == user.email]
+
         if len(contacts) == 1:
             contact_id = contacts[0]["id"]
         elif len(contacts) > 1:

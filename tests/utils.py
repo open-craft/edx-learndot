@@ -27,7 +27,10 @@ class LearndotAPIClientMock(LearndotAPIClient):
         responses.add(
             responses.POST,
             self.get_contact_search_url(),
-            json={"results": [{"id": 1, "_displayName_": "Test Name", "email": "test@gmail.com"}]}
+            json={"results": [
+                {"id": 1, "_displayName_": "Test Name", "email": "test@gmail.com"},
+                {"id": 2, "_displayName_": "Test Name 2", "email": "rc.test@gmail.com"},
+            ]}
         )
         return super(LearndotAPIClientMock, self).get_contact_id(user)
 
