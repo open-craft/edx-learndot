@@ -63,8 +63,9 @@ class LearndotAPIException(Exception):
             429 Too Many Requests
             504 Gateway Timeout
         """
+        str_e = str(exception)
         if (isinstance(exception, cls) and (
-                ("429" in str(exception)) or ("504" in str(exception)))):
+                ("429" in str_e) or ("504" in str_e) or ("502" in str_e))):
             log.warning("Retrying...")
             return True
         return False

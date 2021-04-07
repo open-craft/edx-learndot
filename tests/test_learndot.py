@@ -316,6 +316,7 @@ class TestLearndotAPIClient(TestCase):
         # Retried API errors
         (429, 'Retrying...'),   # Too Many Requests
         (504, 'Retrying...'),   # Gateway Timeout
+        (502, 'Retrying...'),   # Rate limit
 
         # Just error out, no retries
         (400, None),            # Bad Request
