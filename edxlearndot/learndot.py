@@ -63,8 +63,9 @@ class LearndotAPIException(Exception):
             429 Too Many Requests
             504 Gateway Timeout
         """
+        str_e = str(exception)
         if (isinstance(exception, cls) and (
-                ("429" in str(exception)) or ("504" in str(exception)))):
+                ("429" in str_e) or ("504" in str_e) or ("502" in str_e))):
             log.warning("Retrying...")
             return True
         return False
@@ -287,6 +288,10 @@ class LearndotAPIClient:
 
         contacts = response.json()["results"]
         contact_id = None
+
+        # Learndot API query doesn't use exact matching, so filter out any contacts whose emails don't match.
+        contacts = [c for c in contacts if c["email"] == user.email]
+
         if len(contacts) == 1:
             contact_id = contacts[0]["id"]
         elif len(contacts) > 1:
