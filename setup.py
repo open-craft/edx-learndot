@@ -27,7 +27,7 @@ setup(
     install_requires=[
         "django>=2.2",
         "edx-opaque-keys",
-        "python-dateutil",
+        "dateparser",
         "requests",
         "retrying>=1.3,<2.0",
     ],

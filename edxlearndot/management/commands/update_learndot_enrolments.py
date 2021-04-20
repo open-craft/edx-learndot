@@ -9,6 +9,7 @@ from __future__ import absolute_import, unicode_literals
 import logging
 import sys
 
+import dateparser
 from django.core.management.base import BaseCommand
 
 from opaque_keys import InvalidKeyError
@@ -57,6 +58,18 @@ class Command(BaseCommand):
         )
 
         parser.add_argument(
+            "--start",
+            default="a year ago",
+            help=("""Start date from which to find enrollments."""),
+        )
+
+        parser.add_argument(
+            "--end",
+            default="now",
+            help=("""End date from which to find enrollments.""")
+        )
+
+        parser.add_argument(
             "course_id",
             nargs="*",
             help=("""If course IDs are given, only update enrollments for those courses.""")
@@ -90,8 +103,11 @@ class Command(BaseCommand):
         # for each mapped course, go through its enrollments, get the
         # course grade for each enrolled user, and if the user has passed,
         # update the Learndot enrolment
+
+        end_enrollments_date = dateparser.parse(options["end"])
+        start_enrolments_date = dateparser.parse(options["start"])
+
         for cm in course_mappings:
-            course = None
             try:
                 course = get_course(cm.edx_course_key)
             except (InvalidKeyError, ValueError):
@@ -100,7 +116,11 @@ class Command(BaseCommand):
 
             log.info("Processing enrollments in course %s", cm.edx_course_key)
 
-            enrollments = CourseEnrollment.objects.filter(course_id=cm.edx_course_key)
+            enrollments = CourseEnrollment.objects.filter(
+                course_id=cm.edx_course_key,
+                created__range=[start_enrolments_date, end_enrollments_date],
+            )
+
             if options["users"]:
                 enrollments = enrollments.filter(user__username__in=options["users"])
 
