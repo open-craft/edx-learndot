@@ -21,6 +21,8 @@ INSTALLED_APPS = (
     "edxlearndot"
 )
 
+USE_TZ = True
+
 SECRET_KEY = "insecure-secret-key"
 
 LEARNDOT_API_BASE_URL = 'http://learndot/'

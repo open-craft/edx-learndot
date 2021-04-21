@@ -4,6 +4,7 @@ Test the Learndot API
 
 from __future__ import absolute_import, unicode_literals
 
+import datetime
 import sys
 
 from mock import patch, MagicMock
@@ -12,6 +13,7 @@ import responses
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import TestCase
+from django.utils import timezone
 
 from edxlearndot.learndot import (
     EnrolmentStatus, LearndotAPIClient, LearndotAPIException,
@@ -372,13 +374,27 @@ class TestLearndotCommands(TestCase):
     @patch('edxlearndot.management.commands.update_learndot_enrolments.LearndotAPIClient.get_contact_id')
     @patch('edxlearndot.management.commands.update_learndot_enrolments.LearndotAPIClient.get_enrolment_id')
     def test_update_learndot_enrolments_with_date_range(self, enrolment_id_mock, contact_id_mock, objects_mock, *args):
-        objects_mock.filter.return_value = [MagicMock()]
+        def filter_mock(*args, created__range, **kwargs):
+            enrollments = {}
+
+            # only creating enrollments for the past year
+            for _ in range(10):
+                enrollments[timezone.now() - datetime.timedelta(days=30)] = MagicMock()
+            output = []
+            for enrollment_date, enrollment_mock in enrollments.items():
+                print(enrollment_date)
+                if created__range[0] <= enrollment_date <= created__range[1]:
+                    output.append(enrollment_mock)
+            return output
+
+        objects_mock.filter = filter_mock
         contact_id_mock.return_value = "contact_id"
-        test_enrolment_id = 412
-        enrolment_id_mock.return_value = test_enrolment_id
+        enrolment_id_mock.return_value = 412
 
         from edxlearndot.management.commands.update_learndot_enrolments import Command
         CourseMapping.objects.create(learndot_component_id=1, edx_course_key=self.course_key)
+
+        # testing enrollments are found
         Command().handle(
             course_id=[self.course_key],
             start='two years ago',
@@ -386,4 +402,17 @@ class TestLearndotCommands(TestCase):
             users=[],
             unconditional=False,
         )
-        self.assertTrue(EnrolmentStatusLog.objects.get(learndot_enrolment_id=test_enrolment_id))
+        self.assertTrue(EnrolmentStatusLog.objects.get(learndot_enrolment_id=412))
+
+        # testing enrollments are not found
+        enrolment_id_mock.return_value = 300
+        Command().handle(
+            course_id=[self.course_key],
+            start='two years ago',
+            end='one year ago',
+            users=[],
+            unconditional=False,
+        )
+        with self.assertRaises(EnrolmentStatusLog.DoesNotExist):
+            EnrolmentStatusLog.objects.get(learndot_enrolment_id=300)
+
