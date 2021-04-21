@@ -346,12 +346,6 @@ class TestLearndotAPIClient(TestCase):
             mock_logger.warning.assert_not_called()
 
 
-class ModelMock:
-    def exists(self):
-        print('is this ok?')
-        return True
-
-
 class TestLearndotCommands(TestCase):
     def _mock_edx_modules(self):
         sys.modules['lms'] = MagicMock()
@@ -373,9 +367,23 @@ class TestLearndotCommands(TestCase):
         self._mock_edx_modules()
         super(TestLearndotCommands, self).setUp()
 
-    @patch('lms.djangoapps.courseware.courses.get_course')
-    @patch('common.djangoapps.student.models.CourseEnrollment.objects')
-    def test_update_learndot_enrolments_with_date_range(self, *args):
+    @patch('edxlearndot.learndot.requests.post')
+    @patch('edxlearndot.management.commands.update_learndot_enrolments.CourseEnrollment.objects')
+    @patch('edxlearndot.management.commands.update_learndot_enrolments.LearndotAPIClient.get_contact_id')
+    @patch('edxlearndot.management.commands.update_learndot_enrolments.LearndotAPIClient.get_enrolment_id')
+    def test_update_learndot_enrolments_with_date_range(self, enrolment_id_mock, contact_id_mock, objects_mock, *args):
+        objects_mock.filter.return_value = [MagicMock()]
+        contact_id_mock.return_value = "contact_id"
+        test_enrolment_id = 412
+        enrolment_id_mock.return_value = test_enrolment_id
+
         from edxlearndot.management.commands.update_learndot_enrolments import Command
         CourseMapping.objects.create(learndot_component_id=1, edx_course_key=self.course_key)
-        Command().handle(course_id=[self.course_key], start='two years ago', end='now', users=[])
+        Command().handle(
+            course_id=[self.course_key],
+            start='two years ago',
+            end='now',
+            users=[],
+            unconditional=False,
+        )
+        self.assertTrue(EnrolmentStatusLog.objects.get(learndot_enrolment_id=test_enrolment_id))

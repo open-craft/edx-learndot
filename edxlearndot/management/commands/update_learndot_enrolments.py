@@ -10,6 +10,7 @@ import logging
 import sys
 
 import dateparser
+from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from opaque_keys import InvalidKeyError
@@ -104,8 +105,9 @@ class Command(BaseCommand):
         # course grade for each enrolled user, and if the user has passed,
         # update the Learndot enrolment
 
-        end_enrollments_date = dateparser.parse(options["end"])
-        start_enrolments_date = dateparser.parse(options["start"])
+        date_settings = {'TIMEZONE': settings.TIME_ZONE, 'RETURN_AS_TIMEZONE_AWARE': True}
+        end_enrollments_date = dateparser.parse(options["end"], settings=date_settings)
+        start_enrolments_date = dateparser.parse(options["start"], settings=date_settings)
 
         for cm in course_mappings:
             try:
