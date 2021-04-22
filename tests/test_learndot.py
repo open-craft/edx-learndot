@@ -382,7 +382,6 @@ class TestLearndotCommands(TestCase):
                 enrollments[timezone.now() - datetime.timedelta(days=30)] = MagicMock()
             output = []
             for enrollment_date, enrollment_mock in enrollments.items():
-                print(enrollment_date)
                 if created__range[0] <= enrollment_date <= created__range[1]:
                     output.append(enrollment_mock)
             return output
