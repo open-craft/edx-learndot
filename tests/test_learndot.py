@@ -3,19 +3,23 @@ Test the Learndot API
 """
 
 from __future__ import absolute_import, unicode_literals
-from mock import patch
+
+import datetime
+import sys
+
+from mock import patch, MagicMock
 import ddt
-import requests
 import responses
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.test import TestCase, override_settings
+from django.test import TestCase
+from django.utils import timezone
 
 from edxlearndot.learndot import (
     EnrolmentStatus, LearndotAPIClient, LearndotAPIException,
     compare_enrolment_sort_keys, sort_enrolments_by_expiry
 )
-from edxlearndot.models import EnrolmentStatusLog
+from edxlearndot.models import CourseMapping, EnrolmentStatusLog
 
 from .utils import LearndotAPIClientMock
 
@@ -342,3 +346,72 @@ class TestLearndotAPIClient(TestCase):
             mock_logger.warning.assert_called_with(retry)
         else:
             mock_logger.warning.assert_not_called()
+
+
+class TestLearndotCommands(TestCase):
+    def _mock_edx_modules(self):
+        sys.modules['lms'] = MagicMock()
+        sys.modules['lms.djangoapps'] = MagicMock()
+        sys.modules['lms.djangoapps.courseware'] = MagicMock()
+        sys.modules['lms.djangoapps.courseware.courses'] = MagicMock()
+        sys.modules['lms.djangoapps.grades'] = MagicMock()
+        sys.modules['lms.djangoapps.grades.config'] = MagicMock()
+        sys.modules['lms.djangoapps.grades.course_grade_factory'] = MagicMock()
+        sys.modules['common'] = MagicMock()
+        sys.modules['common.djangoapps'] = MagicMock()
+        sys.modules['common.djangoapps.student'] = MagicMock()
+        sys.modules['common.djangoapps.student.models'] = MagicMock()
+
+    def setUp(self):
+        self.course_key = "course-v1:Test+TestCourse+201801"
+        self.user = User.objects.create(username="test", email="test@gmail.com", password="test")
+        self.client = LearndotAPIClientMock()
+        self._mock_edx_modules()
+        super(TestLearndotCommands, self).setUp()
+
+    @patch('edxlearndot.learndot.requests.post')
+    @patch('edxlearndot.management.commands.update_learndot_enrolments.CourseEnrollment.objects')
+    @patch('edxlearndot.management.commands.update_learndot_enrolments.LearndotAPIClient.get_contact_id')
+    @patch('edxlearndot.management.commands.update_learndot_enrolments.LearndotAPIClient.get_enrolment_id')
+    def test_update_learndot_enrolments_with_date_range(self, enrolment_id_mock, contact_id_mock, objects_mock, *args):
+        def filter_mock(*args, created__range, **kwargs):
+            enrollments = {}
+
+            # only creating enrollments for the past year
+            for _ in range(10):
+                enrollments[timezone.now() - datetime.timedelta(days=30)] = MagicMock()
+            output = []
+            for enrollment_date, enrollment_mock in enrollments.items():
+                if created__range[0] <= enrollment_date <= created__range[1]:
+                    output.append(enrollment_mock)
+            return output
+
+        objects_mock.filter = filter_mock
+        contact_id_mock.return_value = "contact_id"
+        enrolment_id_mock.return_value = 412
+
+        from edxlearndot.management.commands.update_learndot_enrolments import Command
+        CourseMapping.objects.create(learndot_component_id=1, edx_course_key=self.course_key)
+
+        # testing enrollments are found
+        Command().handle(
+            course_id=[self.course_key],
+            start='two years ago',
+            end='now',
+            users=[],
+            unconditional=False,
+        )
+        self.assertTrue(EnrolmentStatusLog.objects.get(learndot_enrolment_id=412))
+
+        # testing enrollments are not found
+        enrolment_id_mock.return_value = 300
+        Command().handle(
+            course_id=[self.course_key],
+            start='two years ago',
+            end='one year ago',
+            users=[],
+            unconditional=False,
+        )
+        with self.assertRaises(EnrolmentStatusLog.DoesNotExist):
+            EnrolmentStatusLog.objects.get(learndot_enrolment_id=300)
+
